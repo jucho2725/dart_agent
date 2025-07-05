@@ -1,0 +1,18 @@
+# Core AI/LLM Framework
+langchain
+langchain-openai
+
+# Data Handling & API
+pandas
+dart-fss
+
+# Web UI
+streamlit
+
+# Utilities
+python-dotenv
+
+# Additional utilities
+requests
+beautifulsoup4
+lxml 
