@@ -197,3 +197,41 @@ python -m pytest tests/test_workflow.py -v
 ## 라이선스
 
 이 프로젝트는 MIT 라이선스 하에 배포됩니다. 
+
+## 실행 방법
+
+### 1. 직접 실행
+
+```bash
+python -m streamlit run streamlit/app.py
+```
+
+또는
+
+```bash
+streamlit run streamlit/app.py
+```
+
+브라우저에서 http://localhost:8501 접속
+
+### 2. Docker를 사용한 실행
+
+#### Docker 이미지 빌드
+```bash
+docker build -t dart-agent-app .
+```
+
+#### Docker 컨테이너 실행
+```bash
+# .env 파일을 사용하여 실행
+docker run -p 8501:8501 --env-file .env dart-agent-app
+
+# 또는 Docker Compose 사용
+docker-compose up
+```
+
+자세한 Docker 설정 방법은 [LOCAL_DOCKER_SETUP.md](LOCAL_DOCKER_SETUP.md)를 참조하세요.
+
+### 3. 클라우드 배포
+
+AWS App Runner를 사용한 배포 방법은 [DEPLOYMENT.md](DEPLOYMENT.md)를 참조하세요. 
