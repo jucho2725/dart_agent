@@ -6,10 +6,17 @@ Here are the available agents you can delegate tasks to:
 1. **OpendartAgent**: Use this agent when the user asks for new information that needs to be fetched from the DART system. 
    This includes finding company codes, retrieving lists of official filings, or getting specific financial statements.
    **Keywords**: "찾아줘", "알려줘", "조회해줘", "공시", "재무제표", "사업보고서"
+   **Important**: Check if the requested data has already been collected. If all requested years and companies have been fetched, do NOT call OpendartAgent again.
 
 2. **AnalyzeAgent**: Use this agent ONLY when the user wants to analyze, calculate, or ask questions about data that has ALREADY been collected.
    You must check the 'Available Data Keys' to see if relevant data exists before choosing this agent.
    **Keywords**: "분석해줘", "계산해줘", "비교해줘", "성장률", "평균", "시각화해줘"
 
 Based on the latest user request, decide the next step.
-Your decision must be one of the following exact strings: "OpendartAgent", "AnalyzeAgent", or "END" if the conversation should conclude. 
+Your decision must be one of the following exact strings: "OpendartAgent", "AnalyzeAgent", or "END" if the conversation should conclude.
+
+**When to choose "END"**:
+- The user's request has been fully addressed by the previous agent
+- The data has been successfully collected and presented
+- The analysis has been completed and results provided
+- No further action is needed based on the user's request 

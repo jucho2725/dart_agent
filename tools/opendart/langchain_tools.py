@@ -82,7 +82,7 @@ def search_corp_code(company_name: str) -> Optional[Dict[str, str]]:
             return None
             
     except Exception as e:
-        print(f"corp_code 검색 중 오류 발생: {e}")
+        # print 대신 오류 정보를 반환
         return None
 
 
@@ -155,7 +155,8 @@ def search_financial_statements_dataframe(
             company_name=actual_company_name,
             output_format="dataframe",
             bsns_year=year,
-            reprt_code=reprt_code
+            reprt_code=reprt_code,
+            verbose=False  # verbose=False로 설정하여 상세 출력 억제
         )
         
         if not results:
@@ -193,14 +194,21 @@ def search_financial_statements_dataframe(
             ]
             storage_key = '_'.join(key_parts)
             
-            # DataFrame 저장
-            data_store.add(storage_key, selected_df)
-            
-            # 전역 데이터 저장소에도 추가
-            if _global_data_store and data_store != _global_data_store:
-                _global_data_store.add(storage_key, selected_df)
-            
-            message = f"'{actual_company_name}'의 {year}년 {fs_type} 재무제표를 조회하여 '{storage_key}' 키로 저장했습니다."
+            # 이미 존재하는 키인지 확인
+            existing_keys = data_store.list_keys()
+            if storage_key not in existing_keys:
+                # DataFrame 저장
+                data_store.add(storage_key, selected_df)
+                
+                # 전역 데이터 저장소에도 추가 (중복 확인)
+                if _global_data_store and data_store != _global_data_store:
+                    global_keys = _global_data_store.list_keys()
+                    if storage_key not in global_keys:
+                        _global_data_store.add(storage_key, selected_df)
+                
+                message = f"'{actual_company_name}'의 {year}년 {fs_type} 재무제표를 조회하여 '{storage_key}' 키로 저장했습니다."
+            else:
+                message = f"'{actual_company_name}'의 {year}년 {fs_type} 재무제표가 이미 '{storage_key}' 키로 저장되어 있습니다."
         else:
             message = f"'{actual_company_name}'의 {year}년 {fs_type} 재무제표를 조회했습니다."
         

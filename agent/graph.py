@@ -30,10 +30,15 @@ class AgentState(TypedDict):
 class DARTWorkflow:
     """DART 에이전트 워크플로우 관리 클래스"""
     
-    def __init__(self):
-        """워크플로우 초기화"""
+    def __init__(self, verbose: bool = False):
+        """워크플로우 초기화
+        
+        Args:
+            verbose (bool): 에이전트 실행 과정을 출력할지 여부. 기본값은 False.
+        """
         # 프롬프트 로더 초기화
         self.prompt_loader = prompt_loader
+        self.verbose = verbose
         
         # 플래너 LLM 설정
         api_key = get_openai_api_key()
@@ -137,18 +142,30 @@ class DARTWorkflow:
         Returns:
             업데이트된 상태
         """
+        from utils.callbacks import StreamlitLogCallbackHandler
+        
         # 데이터 저장소 초기화 (필요한 경우)
         if not state.get("data_store"):
             state["data_store"] = SessionDataStore()
         
-        # config에서 콜백 추출
+        # config에서 콜백 추출 및 에이전트별 콜백 추가
         callbacks = config.get("callbacks", []) if config else []
+        
+        # OpendartAgent 전용 콜백 핸들러 추가
+        opendart_callback = StreamlitLogCallbackHandler(agent_name="OpendartAgent")
+        
+        # callbacks가 리스트인지 확인하고 처리
+        if isinstance(callbacks, list):
+            agent_callbacks = callbacks + [opendart_callback]
+        else:
+            # CallbackManager인 경우
+            agent_callbacks = [opendart_callback]
         
         # OpendartAgent 생성
         opendart_agent = create_opendart_agent(
             data_store=state["data_store"],
-            verbose=False,  # 터미널 출력 비활성화
-            callbacks=callbacks  # 콜백 전달
+            verbose=self.verbose,  # 터미널 출력 비활성화
+            callbacks=agent_callbacks  # 콜백 전달
         )
         
         # 최신 사용자 메시지 가져오기
@@ -158,14 +175,21 @@ class DARTWorkflow:
                 latest_message = msg.content
                 break
         
-        # 에이전트 실행 - config 전달
+        # 에이전트 실행 - 에이전트별 config 생성
+        agent_config = {**config, "callbacks": agent_callbacks}
         result = opendart_agent.invoke(
             {"input": latest_message}, 
-            config=config  # 콜백 포함된 config 전달
+            config=agent_config  # 에이전트별 콜백 포함된 config 전달
         )
         
         # 결과를 메시지에 추가
         state["messages"].append(AIMessage(content=result["output"]))
+        
+        # 에이전트별 로그를 전체 콜백에 병합
+        if isinstance(callbacks, list):
+            for callback in callbacks:
+                if isinstance(callback, StreamlitLogCallbackHandler):
+                    callback.logs.extend(opendart_callback.logs)
         
         return state
     
@@ -180,6 +204,8 @@ class DARTWorkflow:
         Returns:
             업데이트된 상태
         """
+        from utils.callbacks import StreamlitLogCallbackHandler
+        
         # 데이터 저장소 확인
         if not state.get("data_store"):
             state["messages"].append(
@@ -187,14 +213,25 @@ class DARTWorkflow:
             )
             return state
         
-        # config에서 콜백 추출
+        # config에서 콜백 추출 및 에이전트별 콜백 추가
         callbacks = config.get("callbacks", []) if config else []
+        
+        # AnalyzeAgent 전용 콜백 핸들러 추가
+        analyze_callback = StreamlitLogCallbackHandler(agent_name="AnalyzeAgent")
+        
+        # callbacks가 리스트인지 확인하고 처리
+        if isinstance(callbacks, list):
+            agent_callbacks = callbacks + [analyze_callback]
+        else:
+            # CallbackManager인 경우
+            agent_callbacks = [analyze_callback]
         
         # AnalyzeAgent 생성
         analyze_agent = create_multi_df_analyze_agent(
             data_store=state["data_store"],
             model="gpt-4o-mini",
-            callbacks=callbacks  # 콜백 전달
+            verbose=self.verbose,
+            callbacks=agent_callbacks  # 콜백 전달
         )
         
         # 최신 사용자 메시지 가져오기
@@ -204,14 +241,21 @@ class DARTWorkflow:
                 latest_message = msg.content
                 break
         
-        # 에이전트 실행 - config 전달
+        # 에이전트 실행 - 에이전트별 config 생성
+        agent_config = {**config, "callbacks": agent_callbacks}
         result = analyze_agent.invoke(
             {"input": latest_message},
-            config=config  # 콜백 포함된 config 전달
+            config=agent_config  # 에이전트별 콜백 포함된 config 전달
         )
         
         # 결과를 메시지에 추가
         state["messages"].append(AIMessage(content=result["output"]))
+        
+        # 에이전트별 로그를 전체 콜백에 병합
+        if isinstance(callbacks, list):
+            for callback in callbacks:
+                if isinstance(callback, StreamlitLogCallbackHandler):
+                    callback.logs.extend(analyze_callback.logs)
         
         return state
     
@@ -236,11 +280,15 @@ class DARTWorkflow:
 
 
 # 3. 그래프 구성 및 컴파일
-def create_dart_workflow():
-    """DART 워크플로우 그래프를 생성하고 컴파일합니다."""
+def create_dart_workflow(verbose: bool = False):
+    """DART 워크플로우 그래프를 생성하고 컴파일합니다.
+    
+    Args:
+        verbose (bool): 에이전트 실행 과정을 출력할지 여부. 기본값은 False.
+    """
     
     # 워크플로우 매니저 생성
-    workflow_manager = DARTWorkflow()
+    workflow_manager = DARTWorkflow(verbose=verbose)
     
     # 그래프 생성
     graph = StateGraph(AgentState)
@@ -275,18 +323,21 @@ def create_dart_workflow():
 
 
 # 편의 함수
-def run_dart_workflow(user_input: str, data_store: SessionDataStore = None):
+def run_dart_workflow(user_input: str, data_store: SessionDataStore = None, verbose: bool = False):
     """
     DART 워크플로우를 실행하는 편의 함수
     
     Args:
         user_input: 사용자 입력
         data_store: 기존 데이터 저장소 (선택사항)
+        verbose: 에이전트 실행 과정을 출력할지 여부. 기본값은 False.
         
     Returns:
         최종 상태
     """
-    app = create_dart_workflow()
+    from utils.callbacks import SimpleToolCallbackHandler
+    
+    app = create_dart_workflow(verbose=verbose)
     
     initial_state = {
         "messages": [HumanMessage(content=user_input)],
@@ -295,8 +346,12 @@ def run_dart_workflow(user_input: str, data_store: SessionDataStore = None):
         "next_agent": ""
     }
     
-    # 재귀 제한 설정
+    # 재귀 제한 및 콜백 설정
     config = {"recursion_limit": 50}
+    
+    # verbose=False일 때 간단한 툴 콜백 추가
+    if not verbose:
+        config["callbacks"] = [SimpleToolCallbackHandler()]
     
     result = app.invoke(initial_state, config=config)
     

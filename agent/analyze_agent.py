@@ -18,6 +18,7 @@ def create_multi_df_analyze_agent(
     data_store: SessionDataStore,
     model: str = "gpt-4o-mini",
     temperature: float = 0,
+    verbose: bool = False,
     callbacks: Optional[list] = None
 ) -> AgentExecutor:
     """
@@ -28,6 +29,7 @@ def create_multi_df_analyze_agent(
         data_store (SessionDataStore): 분석할 데이터들이 저장된 데이터 저장소
         model (str): 사용할 OpenAI 모델명 (기본값: "gpt-4o-mini")
         temperature (float): LLM의 temperature 설정 (0: 결정적, 1: 창의적)
+        verbose (bool): 에이전트 실행 과정을 출력할지 여부. 기본값은 False.
         callbacks (list, optional): 콜백 핸들러 리스트
         
     Returns:
@@ -77,7 +79,7 @@ def create_multi_df_analyze_agent(
     agent_executor = AgentExecutor(
         agent=agent,
         tools=tools,
-        verbose=False,  # 터미널 출력 비활성화
+        verbose=verbose,  # verbose 파라미터 사용
         handle_parsing_errors=True,
         max_iterations=10,  # 복잡한 분석을 위해 충분한 반복 허용
         callbacks=callbacks  # 콜백 전달

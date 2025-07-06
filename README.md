@@ -34,47 +34,76 @@ DART(Data Analysis, Retrieval & Transfer) 공시 시스템의 재무제표 데�
 └─────────────────────────────────────────────────────────┘
 ```
 
-## 설치 방법
+## 설치 및 실행
 
-1. 저장소 클론
+### 1. 환경 설정
 ```bash
-git clone <repository-url>
-cd dart
-```
-
-2. 필요한 패키지 설치
-```bash
+# 패키지 설치
 pip install -r requirements.txt
+
+# 환경 변수 설정
+cp .env.example .env
+# .env 파일에 OPENAI_API_KEY 입력
 ```
 
-3. 환경 변수 설정
-`.env` 파일을 생성하고 다음 API 키를 설정:
-```
-OPENAI_API_KEY=your_openai_api_key
-DART_API_KEY=your_dart_api_key
-```
+### 2. 실행 방법
 
-## 사용 방법
-
-### 1. Streamlit UI (권장)
-
-웹 기반 챗봇 인터페이스로 시스템을 사용할 수 있습니다:
-
+#### 콘솔 모드
 ```bash
+# 기본 실행 (간단 출력 모드)
+python main.py
+
+# 상세 출력 모드
+python main.py --verbose
+```
+
+#### Streamlit UI 모드
+```bash
+# 방법 1: main.py 사용
 python main.py --streamlit
-```
 
-또는 직접 실행:
-```bash
+# 방법 2: 직접 실행
 streamlit run streamlit/app.py
 ```
 
-### 2. 콘솔 모드
+### 3. Verbose 모드
 
-터미널에서 대화형으로 사용:
-```bash
-python main.py
-```
+- **기본 모드 (verbose=False)**: 도구 사용 정보만 간단히 출력
+  - 🔧 도구 이름과 입력 파라미터 요약만 표시
+  - 빠른 실행 상황 파악에 적합
+
+- **상세 모드 (verbose=True)**: 전체 실행 과정 출력
+  - 에이전트의 모든 사고 과정과 도구 실행 세부사항 표시
+  - 디버깅이나 상세한 분석에 유용
+
+- **Streamlit UI**: 사이드바의 "상세 출력 모드" 체크박스로 토글 가능
+
+## 주요 기능
+
+### 1. Multi-Agent 시스템
+- **Planner Agent**: 사용자 요청을 분석하고 적절한 에이전트로 라우팅
+- **OpenDART Agent**: DART API를 통해 기업 정보 및 재무제표 조회
+- **Analyze Agent**: 수집된 데이터를 분석하고 인사이트 제공
+
+### 2. 데이터 관리
+- **SessionDataStore**: 세션별 독립적인 데이터 저장소
+- DataFrame 형태로 재무 데이터 저장 및 관리
+- 여러 기업/연도의 데이터를 통합 분석 가능
+
+### 3. Streamlit UI
+- 직관적인 채팅 인터페이스
+- 사이드바에서 저장된 데이터 확인 및 미리보기
+- **처리 과정 로그**: 에이전트의 실행 과정을 실시간으로 확인 가능
+  - 각 대화 턴마다 독립적인 처리 로그 저장
+  - "🔍 처리 과정 상세보기 (Turn N)" 형식으로 표시
+  - JSON 형식으로 구조화된 로그 정보:
+    - 타임스탬프, 에이전트 이름
+    - 사용한 도구와 입력 파라미터
+    - 도구 실행 결과
+    - 최종 응답
+  - 의미없는 로그 (Chain Started/Completed 등) 자동 필터링
+  - 이전 턴의 로그도 계속 확인 가능
+- 세션별 독립적인 상태 관리
 
 ### 3. Python 코드에서 직접 사용
 
