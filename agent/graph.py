@@ -192,10 +192,6 @@ class DARTWorkflow:
             state["processing_logs"] = []
         state["processing_logs"].extend(opendart_callback.logs)
         
-        # 🔍 디버그: 로그 추가 확인
-        print(f"🔍 [DEBUG] opendart_node: Added {len(opendart_callback.logs)} logs to state")
-        print(f"🔍 [DEBUG] Total processing_logs in state: {len(state['processing_logs'])}")
-        
         return state
     
     def analyze_node(self, state: AgentState, config: RunnableConfig) -> AgentState:
@@ -261,9 +257,6 @@ class DARTWorkflow:
             state["processing_logs"] = []
         state["processing_logs"].extend(analyze_callback.logs)
         
-        # 🔍 디버그: 로그 추가 확인
-        print(f"🔍 [DEBUG] analyze_node: Added {len(analyze_callback.logs)} logs to state")
-        print(f"🔍 [DEBUG] Total processing_logs in state: {len(state['processing_logs'])}")
         
         return state
     

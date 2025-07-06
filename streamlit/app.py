@@ -189,9 +189,7 @@ if prompt := st.chat_input("여기에 질문을 입력하세요..."):
                     final_state = st.session_state.graph_app.invoke(state_input, config=config)
                     
                     # 🔍 디버그: 워크플로우 실행 후 로그 확인
-                    st.write("### 🔍 디버그: 최종 상태 로그")
                     processing_logs_from_state = final_state.get("processing_logs", [])
-                    st.write(f"final_state의 processing_logs 길이: {len(processing_logs_from_state)}")
                     if processing_logs_from_state:
                         st.write("처음 3개 로그:")
                         for i, log in enumerate(processing_logs_from_state[:3]):
@@ -220,9 +218,6 @@ if prompt := st.chat_input("여기에 질문을 입력하세요..."):
                         # 상태에서 로그 가져오기
                         processing_logs = processing_logs_from_state
                         
-                        # 🔍 디버그: user_agent_messages에 추가되는 내용 확인
-                        st.write("### 🔍 디버그: user_agent_messages에 추가")
-                        st.write(f"processing_logs 길이: {len(processing_logs)}")
                         
                         # user_agent_messages에 추가
                         st.session_state.user_agent_messages.append({
@@ -232,11 +227,7 @@ if prompt := st.chat_input("여기에 질문을 입력하세요..."):
                             "end_of_turn": True
                         })
                         
-                        # 🔍 디버그: 세션 상태 확인
-                        st.write("### 🔍 디버그: 세션 상태")
-                        st.write(f"user_agent_messages 길이: {len(st.session_state.user_agent_messages)}")
                         last_msg = st.session_state.user_agent_messages[-1]
-                        st.write(f"마지막 메시지 processing_logs 길이: {len(last_msg.get('processing_logs', []))}")
                         
                         # 데이터 저장소 업데이트
                         st.session_state.data_store = final_state["data_store"]
