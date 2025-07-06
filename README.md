@@ -21,6 +21,12 @@ DART(전자공시시스템) 데이터를 수집하고 분석하는 AI 에이전�
 - 사용자 정의 분석 코드 실행
 - **계정명 자동 매핑** - 회사/연도별로 다른 계정명 자동 인식
 
+### 4. 통합 워크플로우 (LangGraph) 🎯 NEW
+- **PlannerAgent**: 사용자 요청을 분석하여 적절한 에이전트로 라우팅
+- **상태 기반 워크플로우**: 대화 맥락을 유지하며 다단계 작업 처리
+- **자동 에이전트 선택**: 데이터 수집/분석 작업 자동 판단
+- **Multi-turn 대화**: 연속적인 대화 처리 지원
+
 ## 📋 요구사항
 
 - Python 3.8+
@@ -43,7 +49,21 @@ DART_API_KEY=your_dart_api_key
 
 ## 💻 사용법
 
-### 1. 데이터 수집 및 저장
+### 1. 통합 워크플로우 사용 (권장) 🎯
+
+```python
+from agent.graph import run_dart_workflow
+
+# 간단한 사용법
+result = run_dart_workflow("삼성전자 2024년 재무제표 분석해줘")
+
+# 또는 대화형 데모 실행
+python demo_workflow.py --interactive
+```
+
+### 2. 개별 에이전트 사용
+
+#### 데이터 수집
 
 ```python
 from utils.data_store import SessionDataStore
@@ -61,7 +81,7 @@ result = agent.invoke({
 })
 ```
 
-### 2. 다중 데이터 분석 (NEW)
+### 3. 다중 데이터 분석 (NEW)
 
 ```python
 from agent.analyze_agent import create_multi_df_analyze_agent
@@ -90,21 +110,30 @@ python demo_analyze_agent.py
 python demo_analyze_agent.py --interactive
 ```
 
-## 📁 프로젝트 구조
+## 🏗️ 프로젝트 구조
 
 ```
 dart/
-├── agent/              # AI 에이전트
+├── agent/           # 에이전트 구현
 │   ├── opendart_agent.py    # 데이터 수집 에이전트
-│   └── analyze_agent.py     # 다중 데이터 분석 에이전트
-├── tools/              # LangChain 도구
-│   ├── opendart/           # DART API 도구
+│   ├── analyze_agent.py     # 데이터 분석 에이전트
+│   └── graph.py            # LangGraph 워크플로우
+├── tools/           # LangChain 도구
+│   ├── opendart/           # OpenDART API 도구
 │   └── analysis_tools.py   # 분석 도구
-├── utils/              # 유틸리티
+├── utils/           # 유틸리티
 │   └── data_store.py       # DataFrame 저장소
-├── resources/          # 설정 및 프롬프트
-├── tests/              # 테스트 코드
-└── demo_analyze_agent.py   # 데모 스크립트
+├── resources/       # 리소스
+│   ├── config.py          # 설정 관리
+│   ├── prompt_loader.py   # 프롬프트 로더
+│   └── prompt/           # 프롬프트 파일
+│       ├── planner/      # PlannerAgent 프롬프트
+│       ├── opendart/     # OpendartAgent 프롬프트
+│       └── analyze/      # AnalyzeAgent 프롬프트
+└── tests/          # 테스트
+    ├── test_data_store.py
+    ├── test_analyze_agent.py
+    └── test_workflow.py    # 워크플로우 테스트
 ```
 
 ## 🧪 테스트

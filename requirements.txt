@@ -16,3 +16,6 @@ python-dotenv
 requests
 beautifulsoup4
 lxml 
+
+# LangGraph
+langgraph>=0.0.20 

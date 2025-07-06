@@ -1,0 +1,10 @@
+## Conversation History:
+{messages}
+
+## Available Data Keys:
+{available_data_keys}
+
+## User Request:
+{input}
+
+Decision: 

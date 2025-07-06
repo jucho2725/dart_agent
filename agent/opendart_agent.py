@@ -10,6 +10,7 @@ from typing import Optional
 
 from tools.opendart.langchain_tools import search_corp_code, search_financial_statements, set_data_store
 from resources.config import OPENAI_API_KEY
+from resources.prompt_loader import prompt_loader
 from utils.data_store import SessionDataStore
 
 
@@ -51,28 +52,12 @@ def create_opendart_agent(data_store: Optional[SessionDataStore] = None, verbose
     )
     
     # 4. 프롬프트 템플릿 설정
-    # 에이전트에게 역할과 도구 사용법을 안내하는 지침
-    system_prompt = """당신은 한국 기업의 재무 데이터를 전문적으로 수집하는 DART 데이터 분석 어시스턴트입니다.
-
-주요 역할:
-1. 사용자가 요청한 기업의 DART 고유번호(corp_code)를 검색합니다.
-2. 기업의 재무제표 정보를 조회하고 제공합니다.
-3. 정확하고 최신의 공시 데이터를 기반으로 답변합니다.
-
-도구 사용 가이드:
-- 먼저 search_corp_code 도구로 기업의 정확한 이름과 고유번호를 확인하세요.
-- 재무제표 조회 시 연도를 명시하지 않으면 가장 최근 연도(2024년)를 기본으로 사용합니다.
-- 사용자가 "작년", "올해" 등의 표현을 사용하면 적절한 연도로 변환하세요.
-
-응답 원칙:
-- 한국어로 친절하고 전문적으로 응답합니다.
-- 숫자는 읽기 쉽게 한국 단위(억원, 조원)로 표시합니다.
-- 재무 데이터는 정확성을 최우선으로 합니다.
-"""
+    # 프롬프트 파일에서 로드
+    prompts = prompt_loader.load_agent_prompts("opendart")
     
     prompt = ChatPromptTemplate.from_messages([
-        ("system", system_prompt),
-        ("human", "{input}"),
+        ("system", prompts["system"]),
+        ("human", prompts["user"]),
         MessagesPlaceholder("agent_scratchpad"),
     ])
     
