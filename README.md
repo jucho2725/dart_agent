@@ -1,171 +1,170 @@
-# DART 에이전트 시스템
+# DART 데이터 취합 및 분석 에이전트 시스템
 
-DART(전자공시시스템) 데이터를 수집하고 분석하는 AI 에이전트 시스템입니다.
+DART(Data Analysis, Retrieval & Transfer) 공시 시스템의 재무제표 데이터를 자동으로 수집하고 분석하는 LangChain 기반 Multi-Agent 시스템입니다.
 
-## 🚀 주요 기능
+## 주요 기능
 
-### 1. 데이터 수집 (OpendartAgent)
-- 회사명으로 DART 고유번호 검색
-- 재무제표 데이터 자동 수집
-- DataFrame 자동 변환 및 저장
+- 📊 **재무제표 자동 수집**: OpenDart API를 통한 기업 재무데이터 조회
+- 🤖 **지능형 분석**: LangChain Agent를 활용한 자연어 기반 데이터 분석
+- 🔄 **Multi-Agent 워크플로우**: LangGraph 기반 복잡한 분석 작업 자동화
+- 💾 **세션 데이터 관리**: 수집된 데이터의 체계적인 저장 및 관리
+- 🌐 **웹 UI 제공**: Streamlit 기반 직관적인 챗봇 인터페이스
 
-### 2. 데이터 저장 (SessionDataStore)
-- 메모리 기반 DataFrame 저장소
-- 키-값 기반 데이터 관리
-- CSV/JSON 내보내기 지원
+## 시스템 아키텍처
 
-### 3. 다중 데이터 분석 (AnalyzeAgent) ✨ NEW
-- 여러 DataFrame 동시 분석
-- 연도별/회사별 비교 분석
-- 재무비율 자동 계산
-- 사용자 정의 분석 코드 실행
-- **계정명 자동 매핑** - 회사/연도별로 다른 계정명 자동 인식
+```
+┌─────────────────────────────────────────────────────────┐
+│                    Streamlit UI                         │
+│                  (챗봇 인터페이스)                        │
+└─────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────┐
+│                   LangGraph 워크플로우                    │
+│  ┌─────────────┐  ┌──────────────┐  ┌──────────────┐   │
+│  │   Planner   │  │ OpendartAgent │  │AnalyzeAgent │   │
+│  │  (라우터)    │  │ (데이터수집)   │  │ (데이터분석)  │   │
+│  └─────────────┘  └──────────────┘  └──────────────┘   │
+└─────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────┐
+│                  SessionDataStore                       │
+│               (DataFrame 중앙 저장소)                     │
+└─────────────────────────────────────────────────────────┘
+```
 
-### 4. 통합 워크플로우 (LangGraph) 🎯 NEW
-- **PlannerAgent**: 사용자 요청을 분석하여 적절한 에이전트로 라우팅
-- **상태 기반 워크플로우**: 대화 맥락을 유지하며 다단계 작업 처리
-- **자동 에이전트 선택**: 데이터 수집/분석 작업 자동 판단
-- **Multi-turn 대화**: 연속적인 대화 처리 지원
+## 설치 방법
 
-## 📋 요구사항
+1. 저장소 클론
+```bash
+git clone <repository-url>
+cd dart
+```
 
-- Python 3.8+
-- OpenAI API 키
-- DART API 키
-
-## 🛠️ 설치
-
-1. 의존성 설치:
+2. 필요한 패키지 설치
 ```bash
 pip install -r requirements.txt
 ```
 
-2. 환경 변수 설정:
-`.env` 파일을 생성하고 다음 내용을 추가하세요:
+3. 환경 변수 설정
+`.env` 파일을 생성하고 다음 API 키를 설정:
 ```
 OPENAI_API_KEY=your_openai_api_key
 DART_API_KEY=your_dart_api_key
 ```
 
-## 💻 사용법
+## 사용 방법
 
-### 1. 통합 워크플로우 사용 (권장) 🎯
+### 1. Streamlit UI (권장)
+
+웹 기반 챗봇 인터페이스로 시스템을 사용할 수 있습니다:
+
+```bash
+python main.py --streamlit
+```
+
+또는 직접 실행:
+```bash
+streamlit run streamlit/app.py
+```
+
+### 2. 콘솔 모드
+
+터미널에서 대화형으로 사용:
+```bash
+python main.py
+```
+
+### 3. Python 코드에서 직접 사용
 
 ```python
 from agent.graph import run_dart_workflow
-
-# 간단한 사용법
-result = run_dart_workflow("삼성전자 2024년 재무제표 분석해줘")
-
-# 또는 대화형 데모 실행
-python demo_workflow.py --interactive
-```
-
-### 2. 개별 에이전트 사용
-
-#### 데이터 수집
-
-```python
 from utils.data_store import SessionDataStore
-from agent.opendart_agent import create_opendart_agent
 
 # 데이터 저장소 초기화
-store = SessionDataStore()
+data_store = SessionDataStore()
 
-# 데이터 수집 에이전트 생성
-agent = create_opendart_agent(store)
-
-# 재무제표 조회
-result = agent.invoke({
-    "input": "삼성전자 2023년 연결 재무제표 조회해줘"
-})
+# 워크플로우 실행
+result = run_dart_workflow(
+    "삼성전자의 2023년 재무제표를 분석해줘",
+    data_store
+)
 ```
 
-### 3. 다중 데이터 분석 (NEW)
+## 사용 예시
 
-```python
-from agent.analyze_agent import create_multi_df_analyze_agent
+### 데이터 조회
+- "삼성전자의 2023, 2024년 사업보고서 찾아줘"
+- "LG전자의 최근 3년간 재무제표 데이터를 가져와줘"
 
-# 분석 에이전트 생성
-analyze_agent = create_multi_df_analyze_agent(store)
+### 데이터 분석
+- "삼성전자와 LG전자의 매출액을 비교 분석해줘"
+- "저장된 데이터로 매출 성장률을 계산해줘"
+- "영업이익률 추이를 분석해줘"
 
-# 매출액 성장률 분석
-result = analyze_agent.invoke({
-    "input": "2023년 대비 2024년 매출액 성장률을 계산해줘"
-})
-
-# 회사 간 비교
-result = analyze_agent.invoke({
-    "input": "삼성전자와 LG전자의 2023년 재무상태를 비교 분석해줘"
-})
-```
-
-### 3. 데모 실행
-
-```bash
-# 기본 데모
-python demo_analyze_agent.py
-
-# 대화형 모드
-python demo_analyze_agent.py --interactive
-```
-
-## 🏗️ 프로젝트 구조
+## 프로젝트 구조
 
 ```
 dart/
-├── agent/           # 에이전트 구현
-│   ├── opendart_agent.py    # 데이터 수집 에이전트
-│   ├── analyze_agent.py     # 데이터 분석 에이전트
-│   └── graph.py            # LangGraph 워크플로우
-├── tools/           # LangChain 도구
-│   ├── opendart/           # OpenDART API 도구
-│   └── analysis_tools.py   # 분석 도구
-├── utils/           # 유틸리티
-│   └── data_store.py       # DataFrame 저장소
-├── resources/       # 리소스
-│   ├── config.py          # 설정 관리
-│   ├── prompt_loader.py   # 프롬프트 로더
-│   └── prompt/           # 프롬프트 파일
-│       ├── planner/      # PlannerAgent 프롬프트
-│       ├── opendart/     # OpendartAgent 프롬프트
-│       └── analyze/      # AnalyzeAgent 프롬프트
-└── tests/          # 테스트
-    ├── test_data_store.py
-    ├── test_analyze_agent.py
-    └── test_workflow.py    # 워크플로우 테스트
+├── agent/                  # LangChain 에이전트 구현
+│   ├── opendart_agent.py  # DART 데이터 수집 에이전트
+│   ├── analyze_agent.py   # 데이터 분석 에이전트
+│   └── graph.py          # LangGraph 워크플로우
+├── streamlit/            # Streamlit UI
+│   └── app.py           # 웹 애플리케이션
+├── tools/                # 에이전트가 사용하는 도구들
+│   └── opendart/        # OpenDart API 관련 도구
+├── utils/               # 유틸리티 모듈
+│   ├── data_store.py    # DataFrame 저장소
+│   └── callbacks.py     # 처리 로그 콜백
+├── resources/           # 설정 및 프롬프트
+│   └── prompt/         # 에이전트별 프롬프트
+└── tests/              # 테스트 코드
 ```
 
-## 🧪 테스트
+## 주요 컴포넌트
+
+### 1. SessionDataStore
+- DataFrame 형태의 재무 데이터를 중앙에서 관리
+- 키-값 방식으로 데이터 저장 및 조회
+- 세션별 독립적인 데이터 관리
+
+### 2. OpendartAgent  
+- OpenDart API를 활용한 재무제표 수집
+- 자연어 쿼리를 API 호출로 변환
+- 수집된 데이터를 SessionDataStore에 저장
+
+### 3. AnalyzeAgent
+- 저장된 DataFrame 데이터 분석
+- 복잡한 계산 및 비교 분석 수행
+- 시각화 및 인사이트 도출
+
+### 4. LangGraph Workflow
+- Planner가 사용자 요청을 분석하여 적절한 에이전트 선택
+- 에이전트 간 상태 공유 및 협업
+- Multi-turn 대화 지원
+
+## 개발 로드맵
+
+- [x] Phase 1: SessionDataStore 구현
+- [x] Phase 2: OpendartAgent 구현  
+- [x] Phase 3: AnalyzeAgent 구현
+- [x] Phase 4: LangGraph 워크플로우 통합
+- [x] Phase 5: Streamlit UI 구현
+- [ ] Phase 6: 고급 분석 기능 추가
+- [ ] Phase 7: 시각화 기능 강화
+
+## 테스트
 
 ```bash
-# 데이터 저장소 테스트
-python tests/test_data_store.py
+# 전체 테스트 실행
+python -m pytest tests/
 
-# DataFrame 저장 테스트
-python tests/test_dataframe_storage.py
-
-# 분석 에이전트 테스트
-python tests/test_analyze_agent.py
+# 특정 테스트 실행
+python -m pytest tests/test_workflow.py -v
 ```
 
-## 📊 지원 기능
+## 라이선스
 
-### 재무제표 분석
-- 매출액, 영업이익, 당기순이익 등 주요 지표 추출
-- 부채비율, 자기자본비율 등 재무비율 계산
-- 연도별 성장률 분석
-- 회사 간 비교 분석
-
-### 데이터 형식
-- 연결재무제표 (CFS)
-- 개별재무제표 (OFS)
-- 분기별/연도별 데이터
-
-## 🤝 기여하기
-
-이슈 및 PR은 언제든 환영합니다!
-
-## 📄 라이선스
-
-이 프로젝트는 MIT 라이선스 하에 있습니다. 
+이 프로젝트는 MIT 라이선스 하에 배포됩니다. 

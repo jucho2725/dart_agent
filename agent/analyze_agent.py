@@ -17,7 +17,8 @@ from resources.prompt_loader import prompt_loader
 def create_multi_df_analyze_agent(
     data_store: SessionDataStore,
     model: str = "gpt-4o-mini",
-    temperature: float = 0
+    temperature: float = 0,
+    callbacks: Optional[list] = None
 ) -> AgentExecutor:
     """
     SessionDataStore 전체를 컨텍스트로 사용하여 여러 데이터프레임을
@@ -27,6 +28,7 @@ def create_multi_df_analyze_agent(
         data_store (SessionDataStore): 분석할 데이터들이 저장된 데이터 저장소
         model (str): 사용할 OpenAI 모델명 (기본값: "gpt-4o-mini")
         temperature (float): LLM의 temperature 설정 (0: 결정적, 1: 창의적)
+        callbacks (list, optional): 콜백 핸들러 리스트
         
     Returns:
         AgentExecutor: 설정된 분석 에이전트
@@ -53,7 +55,8 @@ def create_multi_df_analyze_agent(
     llm = ChatOpenAI(
         model=model,
         temperature=temperature,
-        api_key=api_key
+        api_key=api_key,
+        callbacks=callbacks  # LLM에 콜백 전달
     )
     
     # 4. 시스템 프롬프트 정의
@@ -74,9 +77,10 @@ def create_multi_df_analyze_agent(
     agent_executor = AgentExecutor(
         agent=agent,
         tools=tools,
-        verbose=True,
+        verbose=False,  # 터미널 출력 비활성화
         handle_parsing_errors=True,
-        max_iterations=10  # 복잡한 분석을 위해 충분한 반복 허용
+        max_iterations=10,  # 복잡한 분석을 위해 충분한 반복 허용
+        callbacks=callbacks  # 콜백 전달
     )
     
     return agent_executor

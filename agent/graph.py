@@ -6,6 +6,7 @@ from typing import TypedDict, Annotated, List, Literal, Dict, Any
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
+from langchain_core.runnables import RunnableConfig
 from langgraph.graph import StateGraph, END
 from operator import add
 
@@ -47,12 +48,13 @@ class DARTWorkflow:
         self.planner_system_prompt = prompts["system"]
         self.planner_user_prompt = prompts["user"]
         
-    def planner_node(self, state: AgentState) -> Dict[str, Any]:
+    def planner_node(self, state: AgentState, config: RunnableConfig) -> AgentState:
         """
         사용자의 요청을 분석하고 적절한 에이전트로 라우팅하는 플래너 노드
         
         Args:
             state: 현재 워크플로우 상태
+            config: 런타임 설정 (콜백 포함)
             
         Returns:
             업데이트된 상태
@@ -99,13 +101,14 @@ class DARTWorkflow:
             ("user", self.planner_user_prompt)
         ])
         
-        # LLM 호출
+        # LLM 호출 - config 전달
         response = self.planner_llm.invoke(
             prompt.format_messages(
                 messages=message_history,
                 available_data_keys=available_keys_str,
                 input=latest_message
-            )
+            ),
+            config=config
         )
         
         # 결정 파싱
@@ -123,12 +126,13 @@ class DARTWorkflow:
         
         return state
     
-    def opendart_node(self, state: AgentState) -> Dict[str, Any]:
+    def opendart_node(self, state: AgentState, config: RunnableConfig) -> Dict[str, Any]:
         """
         OpendartAgent를 실행하는 노드
         
         Args:
             state: 현재 워크플로우 상태
+            config: 런타임 설정 (콜백 포함)
             
         Returns:
             업데이트된 상태
@@ -137,10 +141,14 @@ class DARTWorkflow:
         if not state.get("data_store"):
             state["data_store"] = SessionDataStore()
         
+        # config에서 콜백 추출
+        callbacks = config.get("callbacks", []) if config else []
+        
         # OpendartAgent 생성
         opendart_agent = create_opendart_agent(
             data_store=state["data_store"],
-            verbose=True
+            verbose=False,  # 터미널 출력 비활성화
+            callbacks=callbacks  # 콜백 전달
         )
         
         # 최신 사용자 메시지 가져오기
@@ -150,20 +158,24 @@ class DARTWorkflow:
                 latest_message = msg.content
                 break
         
-        # 에이전트 실행
-        result = opendart_agent.invoke({"input": latest_message})
+        # 에이전트 실행 - config 전달
+        result = opendart_agent.invoke(
+            {"input": latest_message}, 
+            config=config  # 콜백 포함된 config 전달
+        )
         
         # 결과를 메시지에 추가
         state["messages"].append(AIMessage(content=result["output"]))
         
         return state
     
-    def analyze_node(self, state: AgentState) -> Dict[str, Any]:
+    def analyze_node(self, state: AgentState, config: RunnableConfig) -> Dict[str, Any]:
         """
         AnalyzeAgent를 실행하는 노드
         
         Args:
             state: 현재 워크플로우 상태
+            config: 런타임 설정 (콜백 포함)
             
         Returns:
             업데이트된 상태
@@ -175,10 +187,14 @@ class DARTWorkflow:
             )
             return state
         
+        # config에서 콜백 추출
+        callbacks = config.get("callbacks", []) if config else []
+        
         # AnalyzeAgent 생성
         analyze_agent = create_multi_df_analyze_agent(
             data_store=state["data_store"],
-            model="gpt-4o-mini"
+            model="gpt-4o-mini",
+            callbacks=callbacks  # 콜백 전달
         )
         
         # 최신 사용자 메시지 가져오기
@@ -188,8 +204,11 @@ class DARTWorkflow:
                 latest_message = msg.content
                 break
         
-        # 에이전트 실행
-        result = analyze_agent.invoke({"input": latest_message})
+        # 에이전트 실행 - config 전달
+        result = analyze_agent.invoke(
+            {"input": latest_message},
+            config=config  # 콜백 포함된 config 전달
+        )
         
         # 결과를 메시지에 추가
         state["messages"].append(AIMessage(content=result["output"]))

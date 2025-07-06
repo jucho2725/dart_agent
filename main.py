@@ -1,69 +1,72 @@
 """
-OpenDart API 기능들을 실행하는 메인 파일
-
-사용 방법:
-python main.py [기능명] [출력형식]
-
-기능명:
-- multi_account: 다중회사 주요계정 정보 조회
-- single_account: 단일회사 주요계정 정보 조회
-- single_financial: 단일회사 전체 재무제표 조회
-
-출력형식 (선택사항):
-- dataframe: DataFrame 형식 출력 (기본값)
-- json: JSON 형식 출력
+메인 실행 파일
 """
 
 import sys
-from tools.opendart import multi_account_main, single_account_main, single_financial_statement_main
+import subprocess
+from agent.graph import run_dart_workflow
+from utils.data_store import SessionDataStore
 
-def show_usage():
-    """사용법을 출력하는 함수"""
-    print("OpenDart API 기능 실행")
-    print("=" * 40)
-    print("사용법: python main.py [기능명] [출력형식]")
-    print()
-    print("사용 가능한 기능:")
-    print("  multi_account     - 다중회사 주요계정 정보 조회")
-    print("  single_account    - 단일회사 주요계정 정보 조회")
-    print("  single_financial  - 단일회사 전체 재무제표 조회")
-    print()
-    print("출력형식 (선택사항):")
-    print("  dataframe         - DataFrame 형식 출력 (기본값)")
-    print("  json              - JSON 형식 출력")
-    print()
-    print("예시:")
-    print("  python main.py multi_account")
-    print("  python main.py single_account")
-    print("  python main.py single_financial")
-    print("  python main.py single_account json")
-    print("  python main.py single_financial json")
+
+def run_console_mode():
+    """콘솔 모드로 실행"""
+    print("DART 데이터 분석 에이전트 (콘솔 모드)")
+    print("=" * 50)
+    
+    # 데이터 저장소 초기화
+    data_store = SessionDataStore()
+    
+    while True:
+        user_input = input("\n질문을 입력하세요 (종료: exit): ").strip()
+        
+        if user_input.lower() == 'exit':
+            print("프로그램을 종료합니다.")
+            break
+            
+        if not user_input:
+            continue
+            
+        print("\n처리 중...")
+        
+        try:
+            # 워크플로우 실행
+            result = run_dart_workflow(user_input, data_store)
+            
+            # 최종 응답 출력
+            for msg in result["messages"]:
+                if hasattr(msg, 'content') and not msg.content.startswith("플래너 결정:"):
+                    print(f"\n{msg.type.upper()}: {msg.content}")
+                    
+            # 데이터 저장소 업데이트
+            data_store = result["data_store"]
+            
+            # 저장된 데이터 키 표시
+            if data_store.list_keys():
+                print(f"\n저장된 데이터 키: {', '.join(data_store.list_keys())}")
+                
+        except Exception as e:
+            print(f"오류 발생: {e}")
+
+
+def run_streamlit_mode():
+    """Streamlit 모드로 실행"""
+    print("Streamlit 앱을 시작합니다...")
+    # streamlit 명령어를 직접 실행
+    subprocess.run(["streamlit", "run", "streamlit/app.py"])
+
 
 def main():
-    """메인 실행 함수"""
-    
-    if len(sys.argv) < 2:
-        show_usage()
-        return
-    
-    feature = sys.argv[1]
-    output_format = sys.argv[2] if len(sys.argv) >= 3 else "dataframe"
-    
-    # 출력형식 유효성 검사
-    if output_format not in ["dataframe", "json"]:
-        print(f"잘못된 출력형식: {output_format}")
-        print("가능한 출력형식: dataframe, json")
-        return
-    
-    if feature == "multi_account":
-        multi_account_main()
-    elif feature == "single_account":
-        single_account_main(output_format)
-    elif feature == "single_financial":
-        single_financial_statement_main(output_format)
+    """메인 함수"""
+    if len(sys.argv) > 1 and sys.argv[1] == "--streamlit":
+        run_streamlit_mode()
     else:
-        print(f"알 수 없는 기능: {feature}")
-        show_usage()
+        print("\n사용법:")
+        print("  콘솔 모드: python main.py")
+        print("  Streamlit UI: python main.py --streamlit")
+        print("  또는 직접 실행: streamlit run streamlit/app.py\n")
+        
+        run_console_mode()
+
 
 if __name__ == "__main__":
     main() 

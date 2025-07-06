@@ -14,14 +14,19 @@ from resources.prompt_loader import prompt_loader
 from utils.data_store import SessionDataStore
 
 
-def create_opendart_agent(data_store: Optional[SessionDataStore] = None, verbose: bool = True):
+def create_opendart_agent(
+    data_store: Optional[SessionDataStore] = None, 
+    verbose: bool = False,
+    callbacks: Optional[list] = None
+):
     """
     OpenDART API 도구들을 사용하여 데이터 수집을 수행하는 AgentExecutor를 생성합니다.
     
     Args:
         data_store (SessionDataStore, optional): 세션 데이터 저장소. 
                                                  None인 경우 새로 생성됩니다.
-        verbose (bool): 에이전트 실행 과정을 출력할지 여부. 기본값은 True.
+        verbose (bool): 에이전트 실행 과정을 출력할지 여부. 기본값은 False.
+        callbacks (list, optional): 콜백 핸들러 리스트.
     
     Returns:
         AgentExecutor: 설정된 OpendartAgent 실행기
@@ -47,7 +52,8 @@ def create_opendart_agent(data_store: Optional[SessionDataStore] = None, verbose
     
     llm = ChatOpenAI(
         model="gpt-4o-mini", 
-        temperature=0
+        temperature=0,
+        callbacks=callbacks  # LLM에도 콜백 전달
         # API 키는 환경 변수에서 자동으로 읽음
     )
     
@@ -70,7 +76,8 @@ def create_opendart_agent(data_store: Optional[SessionDataStore] = None, verbose
         tools=tools, 
         verbose=verbose,
         handle_parsing_errors=True,
-        max_iterations=5  # 무한 루프 방지
+        max_iterations=5,  # 무한 루프 방지
+        callbacks=callbacks  # 콜백 전달
     )
     
     # 데이터 저장소는 별도로 반환하거나 다른 방식으로 관리
