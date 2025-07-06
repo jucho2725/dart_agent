@@ -70,10 +70,16 @@ class StreamlitLogCallbackHandler(BaseCallbackHandler):
             
             # JSON 형식으로 변환
             self.current_action = action_data
-            self.logs.append(json.dumps(action_data, ensure_ascii=False, indent=2))
+            json_log = json.dumps(action_data, ensure_ascii=False, indent=2)
+            self.logs.append(json_log)
+            
+            # 🔍 디버그: 콜백 호출 확인
+            print(f"🔍 [DEBUG] on_agent_action called: agent={self.agent_name}, tool={action.tool}")
+            print(f"🔍 [DEBUG] Current logs count: {len(self.logs)}")
             
         except Exception as e:
             # 오류 발생 시 무시하고 계속 진행
+            print(f"🔍 [DEBUG] Error in on_agent_action: {e}")
             pass
         
     def on_tool_start(self, serialized: Optional[Dict[str, Any]], input_str: str, **kwargs: Any) -> Any:
@@ -96,11 +102,17 @@ class StreamlitLogCallbackHandler(BaseCallbackHandler):
                     "result": str(output)[:500] if output else "No output"  # 결과가 너무 길면 축약
                 }
                 
-                self.logs.append(json.dumps(result_data, ensure_ascii=False, indent=2))
+                json_log = json.dumps(result_data, ensure_ascii=False, indent=2)
+                self.logs.append(json_log)
                 self.current_action = None
+                
+                # 🔍 디버그: 콜백 호출 확인
+                print(f"🔍 [DEBUG] on_tool_end called: agent={self.agent_name}, tool={result_data['tool']}")
+                print(f"🔍 [DEBUG] Current logs count: {len(self.logs)}")
                 
         except Exception as e:
             # 오류 발생 시 무시하고 계속 진행
+            print(f"🔍 [DEBUG] Error in on_tool_end: {e}")
             pass
         
     def on_agent_finish(self, finish: AgentFinish, **kwargs: Any) -> Any:
@@ -116,10 +128,17 @@ class StreamlitLogCallbackHandler(BaseCallbackHandler):
                 "output": str(finish.return_values.get("output", ""))[:500]  # 너무 길면 축약
             }
             
-            self.logs.append(json.dumps(finish_data, ensure_ascii=False, indent=2))
+            json_log = json.dumps(finish_data, ensure_ascii=False, indent=2)
+            self.logs.append(json_log)
+            
+            # 🔍 디버그: 콜백 호출 확인
+            print(f"🔍 [DEBUG] on_agent_finish called: agent={self.agent_name}")
+            print(f"🔍 [DEBUG] Current logs count: {len(self.logs)}")
+            print(f"🔍 [DEBUG] Final logs: {self.logs}")
             
         except Exception as e:
             # 오류 발생 시 무시하고 계속 진행
+            print(f"🔍 [DEBUG] Error in on_agent_finish: {e}")
             pass
         
     def on_llm_start(self, serialized: Optional[Dict[str, Any]], prompts: List[str], **kwargs: Any) -> Any:

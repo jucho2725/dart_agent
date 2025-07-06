@@ -9,6 +9,7 @@ from langchain_openai import ChatOpenAI
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import StateGraph, END
 from operator import add
+from pydantic import SecretStr
 
 from utils.data_store import SessionDataStore
 from agent.opendart_agent import create_opendart_agent
@@ -24,6 +25,7 @@ class AgentState(TypedDict):
     data_store: SessionDataStore
     target_df_key: str  # AnalyzeAgent가 사용할 키
     next_agent: str  # 다음에 실행할 에이전트
+    processing_logs: Annotated[List[str], add]  # 처리 과정 로그
 
 
 # 2. 그래프 노드 및 라우팅 로직 구현
@@ -45,7 +47,7 @@ class DARTWorkflow:
         self.planner_llm = ChatOpenAI(
             model="gpt-4o-mini",
             temperature=0,
-            api_key=api_key
+            api_key=SecretStr(api_key) if api_key else None
         )
         
         # 프롬프트 로드
@@ -84,13 +86,13 @@ class DARTWorkflow:
         # 이전 AI 응답 확인 - 이미 처리된 요청인지 확인
         last_ai_response = ""
         for msg in reversed(state["messages"]):
-            if isinstance(msg, AIMessage) and not msg.content.startswith("플래너 결정:"):
+            if isinstance(msg, AIMessage) and isinstance(msg.content, str) and not msg.content.startswith("플래너 결정:"):
                 last_ai_response = msg.content[:500]  # 최근 AI 응답의 일부
                 break
         
         # 이미 처리된 요청인지 확인
         # 현재 사용자 요청이 이전 응답에서 완전히 처리되었는지 확인
-        if last_ai_response and latest_message:
+        if last_ai_response and latest_message and isinstance(latest_message, str):
             # 데이터 수집이 완료되고 추가 질문이 없는 경우에만 END
             if ("조회하여" in last_ai_response and "저장했습니다" in last_ai_response
                 and "추가로 궁금한 사항" in last_ai_response
@@ -117,7 +119,7 @@ class DARTWorkflow:
         )
         
         # 결정 파싱
-        decision = response.content.strip()
+        decision = response.content.strip() if isinstance(response.content, str) else str(response.content).strip()
         
         # 결정 검증
         valid_decisions = ["OpendartAgent", "AnalyzeAgent", "END"]
@@ -131,7 +133,7 @@ class DARTWorkflow:
         
         return state
     
-    def opendart_node(self, state: AgentState, config: RunnableConfig) -> Dict[str, Any]:
+    def opendart_node(self, state: AgentState, config: RunnableConfig) -> AgentState:
         """
         OpendartAgent를 실행하는 노드
         
@@ -148,11 +150,11 @@ class DARTWorkflow:
         if not state.get("data_store"):
             state["data_store"] = SessionDataStore()
         
-        # config에서 콜백 추출 및 에이전트별 콜백 추가
-        callbacks = config.get("callbacks", []) if config else []
-        
-        # OpendartAgent 전용 콜백 핸들러 추가
+        # OpendartAgent 전용 콜백 핸들러 생성
         opendart_callback = StreamlitLogCallbackHandler(agent_name="OpendartAgent")
+        
+        # config에서 콜백 추출
+        callbacks = config.get("callbacks", []) if config else []
         
         # callbacks가 리스트인지 확인하고 처리
         if isinstance(callbacks, list):
@@ -164,8 +166,8 @@ class DARTWorkflow:
         # OpendartAgent 생성
         opendart_agent = create_opendart_agent(
             data_store=state["data_store"],
-            verbose=self.verbose,  # 터미널 출력 비활성화
-            callbacks=agent_callbacks  # 콜백 전달
+            verbose=self.verbose,
+            callbacks=agent_callbacks
         )
         
         # 최신 사용자 메시지 가져오기
@@ -175,25 +177,28 @@ class DARTWorkflow:
                 latest_message = msg.content
                 break
         
-        # 에이전트 실행 - 에이전트별 config 생성
+        # 에이전트 실행
         agent_config = {**config, "callbacks": agent_callbacks}
         result = opendart_agent.invoke(
             {"input": latest_message}, 
-            config=agent_config  # 에이전트별 콜백 포함된 config 전달
+            config=RunnableConfig(**agent_config)
         )
         
         # 결과를 메시지에 추가
         state["messages"].append(AIMessage(content=result["output"]))
         
-        # 에이전트별 로그를 전체 콜백에 병합
-        if isinstance(callbacks, list):
-            for callback in callbacks:
-                if isinstance(callback, StreamlitLogCallbackHandler):
-                    callback.logs.extend(opendart_callback.logs)
+        # 에이전트 로그를 상태에 추가
+        if "processing_logs" not in state:
+            state["processing_logs"] = []
+        state["processing_logs"].extend(opendart_callback.logs)
+        
+        # 🔍 디버그: 로그 추가 확인
+        print(f"🔍 [DEBUG] opendart_node: Added {len(opendart_callback.logs)} logs to state")
+        print(f"🔍 [DEBUG] Total processing_logs in state: {len(state['processing_logs'])}")
         
         return state
     
-    def analyze_node(self, state: AgentState, config: RunnableConfig) -> Dict[str, Any]:
+    def analyze_node(self, state: AgentState, config: RunnableConfig) -> AgentState:
         """
         AnalyzeAgent를 실행하는 노드
         
@@ -213,11 +218,11 @@ class DARTWorkflow:
             )
             return state
         
-        # config에서 콜백 추출 및 에이전트별 콜백 추가
-        callbacks = config.get("callbacks", []) if config else []
-        
-        # AnalyzeAgent 전용 콜백 핸들러 추가
+        # AnalyzeAgent 전용 콜백 핸들러 생성
         analyze_callback = StreamlitLogCallbackHandler(agent_name="AnalyzeAgent")
+        
+        # config에서 콜백 추출
+        callbacks = config.get("callbacks", []) if config else []
         
         # callbacks가 리스트인지 확인하고 처리
         if isinstance(callbacks, list):
@@ -231,7 +236,7 @@ class DARTWorkflow:
             data_store=state["data_store"],
             model="gpt-4o-mini",
             verbose=self.verbose,
-            callbacks=agent_callbacks  # 콜백 전달
+            callbacks=agent_callbacks
         )
         
         # 최신 사용자 메시지 가져오기
@@ -241,21 +246,24 @@ class DARTWorkflow:
                 latest_message = msg.content
                 break
         
-        # 에이전트 실행 - 에이전트별 config 생성
+        # 에이전트 실행
         agent_config = {**config, "callbacks": agent_callbacks}
         result = analyze_agent.invoke(
             {"input": latest_message},
-            config=agent_config  # 에이전트별 콜백 포함된 config 전달
+            config=RunnableConfig(**agent_config)
         )
         
         # 결과를 메시지에 추가
         state["messages"].append(AIMessage(content=result["output"]))
         
-        # 에이전트별 로그를 전체 콜백에 병합
-        if isinstance(callbacks, list):
-            for callback in callbacks:
-                if isinstance(callback, StreamlitLogCallbackHandler):
-                    callback.logs.extend(analyze_callback.logs)
+        # 에이전트 로그를 상태에 추가
+        if "processing_logs" not in state:
+            state["processing_logs"] = []
+        state["processing_logs"].extend(analyze_callback.logs)
+        
+        # 🔍 디버그: 로그 추가 확인
+        print(f"🔍 [DEBUG] analyze_node: Added {len(analyze_callback.logs)} logs to state")
+        print(f"🔍 [DEBUG] Total processing_logs in state: {len(state['processing_logs'])}")
         
         return state
     
@@ -341,9 +349,10 @@ def run_dart_workflow(user_input: str, data_store: SessionDataStore = None, verb
     
     initial_state = {
         "messages": [HumanMessage(content=user_input)],
-        "data_store": data_store or SessionDataStore(),
+        "data_store": data_store if data_store is not None else SessionDataStore(),
         "target_df_key": "",
-        "next_agent": ""
+        "next_agent": "",
+        "processing_logs": []  # 초기 상태에 로그 필드 추가
     }
     
     # 재귀 제한 및 콜백 설정

@@ -110,8 +110,15 @@ def display_messages_with_logs():
     """메시지와 처리 로그를 함께 표시하는 함수"""
     user_agent_messages = st.session_state.user_agent_messages
     
+    # 🔍 디버그: 메시지 리스트 확인
+    st.write("### 🔍 디버그: display_messages_with_logs")
+    st.write(f"총 메시지 수: {len(user_agent_messages)}")
+    
     turn_idx = 1
     for i, message in enumerate(user_agent_messages):
+        # 🔍 디버그: 각 메시지 확인
+        st.write(f"메시지 {i}: role={message['role']}, processing_logs 길이={len(message.get('processing_logs', []))}")
+        
         # 플래너 결정 메시지는 표시하지 않음
         if message["role"] == "assistant" and message["content"].startswith("플래너 결정:"):
             continue
@@ -122,6 +129,7 @@ def display_messages_with_logs():
             
             # Assistant 메시지이고 처리 로그가 있는 경우
             if message["role"] == "assistant" and message.get("processing_logs"):
+                st.write(f"🔍 디버그: 로그 expander 표시 (Turn {turn_idx})")
                 with st.expander(f"🔍 처리 과정 상세보기 (Turn {turn_idx})", expanded=False):
                     for log in message["processing_logs"]:
                         # JSON 형식의 로그를 st.code로 표시
@@ -173,11 +181,24 @@ if prompt := st.chat_input("여기에 질문을 입력하세요..."):
                         "messages": st.session_state.langchain_messages,
                         "data_store": st.session_state.data_store,
                         "target_df_key": "",
-                        "next_agent": ""
+                        "next_agent": "",
+                        "processing_logs": []  # 초기 로그 리스트
                     }
                     
                     # 워크플로우 실행
                     final_state = st.session_state.graph_app.invoke(state_input, config=config)
+                    
+                    # 🔍 디버그: 워크플로우 실행 후 로그 확인
+                    st.write("### 🔍 디버그: 최종 상태 로그")
+                    processing_logs_from_state = final_state.get("processing_logs", [])
+                    st.write(f"final_state의 processing_logs 길이: {len(processing_logs_from_state)}")
+                    if processing_logs_from_state:
+                        st.write("처음 3개 로그:")
+                        for i, log in enumerate(processing_logs_from_state[:3]):
+                            st.write(f"로그 {i+1}:")
+                            st.code(log, language="json")
+                    else:
+                        st.write("❌ 상태에 로그가 없습니다!")
                     
                     # 최종 응답 추출 (플래너 결정 메시지 제외)
                     response_messages = []
@@ -196,13 +217,26 @@ if prompt := st.chat_input("여기에 질문을 입력하세요..."):
                         # 세션 상태 업데이트
                         st.session_state.langchain_messages.append(response_message)
                         
+                        # 상태에서 로그 가져오기
+                        processing_logs = processing_logs_from_state
+                        
+                        # 🔍 디버그: user_agent_messages에 추가되는 내용 확인
+                        st.write("### 🔍 디버그: user_agent_messages에 추가")
+                        st.write(f"processing_logs 길이: {len(processing_logs)}")
+                        
                         # user_agent_messages에 추가
                         st.session_state.user_agent_messages.append({
                             "role": "assistant",
                             "content": response_message.content,
-                            "processing_logs": workflow_log_callback.logs if workflow_log_callback.logs else [],
+                            "processing_logs": processing_logs,
                             "end_of_turn": True
                         })
+                        
+                        # 🔍 디버그: 세션 상태 확인
+                        st.write("### 🔍 디버그: 세션 상태")
+                        st.write(f"user_agent_messages 길이: {len(st.session_state.user_agent_messages)}")
+                        last_msg = st.session_state.user_agent_messages[-1]
+                        st.write(f"마지막 메시지 processing_logs 길이: {len(last_msg.get('processing_logs', []))}")
                         
                         # 데이터 저장소 업데이트
                         st.session_state.data_store = final_state["data_store"]
@@ -215,10 +249,10 @@ if prompt := st.chat_input("여기에 질문을 입력하세요..."):
                         st.session_state.user_agent_messages.append({
                             "role": "assistant",
                             "content": fallback_message,
-                            "processing_logs": workflow_log_callback.logs if workflow_log_callback.logs else [],
+                            "processing_logs": processing_logs_from_state,  # 상태에서 가져온 로그 사용
                             "end_of_turn": True
                         })
-                    
+            
                 except Exception as e:
                     error_message = f"처리 중 오류가 발생했습니다: {str(e)}"
                     st.error(error_message)
