@@ -26,3 +26,15 @@ def validate_api_keys():
 
 # 초기 검사 실행
 is_configured = validate_api_keys() 
+
+def get_openai_api_key():
+    """OpenAI API 키를 반환합니다."""
+    return OPENAI_API_KEY
+
+def get_dart_api_key():
+    """DART API 키를 반환합니다."""
+    return DART_API_KEY
+
+def load_env():
+    """환경 변수를 다시 로드합니다."""
+    load_dotenv(override=True) 

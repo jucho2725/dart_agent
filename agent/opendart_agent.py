@@ -6,13 +6,14 @@ from langchain.agents import AgentExecutor, create_openai_tools_agent
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage, HumanMessage
+from typing import Optional
 
-from tools.opendart.langchain_tools import search_corp_code, search_financial_statements
+from tools.opendart.langchain_tools import search_corp_code, search_financial_statements, set_data_store
 from resources.config import OPENAI_API_KEY
 from utils.data_store import SessionDataStore
 
 
-def create_opendart_agent(data_store: SessionDataStore = None, verbose: bool = True):
+def create_opendart_agent(data_store: Optional[SessionDataStore] = None, verbose: bool = True):
     """
     OpenDART API 도구들을 사용하여 데이터 수집을 수행하는 AgentExecutor를 생성합니다.
     
@@ -29,6 +30,9 @@ def create_opendart_agent(data_store: SessionDataStore = None, verbose: bool = T
     if data_store is None:
         data_store = SessionDataStore()
     
+    # 데이터 저장소를 도구에 전달
+    set_data_store(data_store)
+    
     # 2. 사용할 도구들을 리스트로 정의
     tools = [
         search_corp_code,
@@ -41,9 +45,9 @@ def create_opendart_agent(data_store: SessionDataStore = None, verbose: bool = T
         raise ValueError("OPENAI_API_KEY가 설정되지 않았습니다. .env 파일을 확인하세요.")
     
     llm = ChatOpenAI(
-        model="gpt-4", 
-        temperature=0,
-        api_key=OPENAI_API_KEY
+        model="gpt-4o-mini", 
+        temperature=0
+        # API 키는 환경 변수에서 자동으로 읽음
     )
     
     # 4. 프롬프트 템플릿 설정
@@ -57,7 +61,7 @@ def create_opendart_agent(data_store: SessionDataStore = None, verbose: bool = T
 
 도구 사용 가이드:
 - 먼저 search_corp_code 도구로 기업의 정확한 이름과 고유번호를 확인하세요.
-- 재무제표 조회 시 연도를 명시하지 않으면 가장 최근 연도(2023년)를 기본으로 사용합니다.
+- 재무제표 조회 시 연도를 명시하지 않으면 가장 최근 연도(2024년)를 기본으로 사용합니다.
 - 사용자가 "작년", "올해" 등의 표현을 사용하면 적절한 연도로 변환하세요.
 
 응답 원칙:
@@ -105,7 +109,7 @@ def test_opendart_agent():
         print(f"결과: {result1['output']}\n")
         
         # 테스트 케이스 2: 재무제표 검색
-        print("테스트 2: 삼성전자 2023년 재무제표 검색")
+        print("테스트 2: 삼성전자 2023년 재무제표 검색해줘")
         print("-" * 50)
         result2 = agent.invoke({"input": "삼성전자 2023년 재무제표 검색해줘"})
         print(f"결과: {result2['output']}\n")

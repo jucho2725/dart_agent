@@ -25,7 +25,8 @@ from .get_financial_statement import (
 # LangChain 도구들
 from .langchain_tools import (
     search_corp_code,
-    search_financial_statements
+    search_financial_statements,
+    search_financial_statements_dataframe
 )
 
 __all__ = [
@@ -43,7 +44,8 @@ __all__ = [
     'test_samsung',
     # LangChain 도구들
     'search_corp_code',
-    'search_financial_statements'
+    'search_financial_statements',
+    'search_financial_statements_dataframe'
 ]
 
 __version__ = "1.0.0"
