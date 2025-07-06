@@ -78,10 +78,16 @@ def get_dataframe_info(df_key: str) -> str:
         # 주요 컬럼 확인
         if 'account_nm' in df.columns and 'thstrm_amount' in df.columns:
             info_parts.append("\n주요 계정 항목 (상위 10개):")
-            key_accounts = df[df['thstrm_amount'].notna()].nlargest(10, 'thstrm_amount')[['account_nm', 'thstrm_amount']]
-            for _, row in key_accounts.iterrows():
-                amount_in_100m = row['thstrm_amount'] / 100_000_000
-                info_parts.append(f"  - {row['account_nm']}: {amount_in_100m:,.0f}억원")
+            # thstrm_amount가 null이 아닌 행만 필터링하고 상위 10개 선택
+            filtered_df = df[df['thstrm_amount'].notna()]
+            if not filtered_df.empty:
+                # nlargest를 사용하여 상위 10개 항목 선택
+                sorted_df = filtered_df.sort_values('thstrm_amount', ascending=False).head(10)
+                for idx in sorted_df.index:
+                    account_nm = sorted_df.loc[idx, 'account_nm']
+                    thstrm_amount = sorted_df.loc[idx, 'thstrm_amount']
+                    amount_in_100m = thstrm_amount / 100_000_000
+                    info_parts.append(f"  - {account_nm}: {amount_in_100m:,.0f}억원")
         
         # 상위 5개 행
         info_parts.append(f"\n상위 5개 행:")
@@ -161,10 +167,57 @@ def execute_python_on_dataframes(code: str) -> Dict[str, Any]:
         return {"error": f"코드 실행 중 오류 발생:\n{str(e)}\n\n상세 정보:\n{error_detail}"}
 
 
+# 계정명 매핑 테이블 (유사한 의미의 계정명들)
+ACCOUNT_NAME_MAPPINGS = {
+    '매출액': ['매출액', '영업수익', '순매출액', '총매출액', '매출'],
+    '매출원가': ['매출원가', '영업비용', '판매원가'],
+    '매출총이익': ['매출총이익', '매출총손익', '영업총이익'],
+    '영업이익': ['영업이익', '영업손익', '영업이익(손실)'],
+    '당기순이익': ['당기순이익', '당기순손익', '순이익', '당기순이익(손실)'],
+    '자산총계': ['자산총계', '총자산', '자산합계'],
+    '부채총계': ['부채총계', '총부채', '부채합계', '부채와자본총계'],
+    '자본총계': ['자본총계', '총자본', '자본합계', '순자산'],
+}
+
+
+def find_similar_account_name(df: pd.DataFrame, target_metric: str) -> Optional[tuple]:
+    """
+    DataFrame에서 유사한 계정명을 찾습니다.
+    
+    Args:
+        df: 검색할 DataFrame
+        target_metric: 찾고자 하는 계정명
+        
+    Returns:
+        Optional[tuple]: (찾은 계정명, 원래 요청한 계정명) 또는 None
+    """
+    # 먼저 정확히 일치하는 것을 찾기
+    if not df[df['account_nm'].str.contains(target_metric, na=False)].empty:
+        return (target_metric, target_metric)
+    
+    # 매핑 테이블에서 유사 계정명 찾기
+    for key, similar_names in ACCOUNT_NAME_MAPPINGS.items():
+        if target_metric in similar_names:
+            # 같은 그룹의 다른 계정명들을 확인
+            for similar_name in similar_names:
+                if similar_name != target_metric:
+                    matching_rows = df[df['account_nm'].str.contains(similar_name, na=False)]
+                    if not matching_rows.empty:
+                        return (similar_name, target_metric)
+    
+    # 부분 매칭 시도 (예: "매출" -> "매출액")
+    for account_nm in df['account_nm'].dropna().unique():
+        if target_metric in account_nm or account_nm in target_metric:
+            return (account_nm, target_metric)
+    
+    return None
+
+
 @tool
 def analyze_financial_metrics(df_key: str, metrics: List[str]) -> Dict[str, Any]:
     """
     지정된 DataFrame에서 특정 재무 지표들을 추출하여 분석합니다.
+    요청한 계정명이 없을 경우 유사한 계정명을 찾아서 대체합니다.
     
     Args:
         df_key (str): 분석할 DataFrame의 키
@@ -184,31 +237,45 @@ def analyze_financial_metrics(df_key: str, metrics: List[str]) -> Dict[str, Any]
         results = {}
         
         for metric in metrics:
-            # 해당 계정명을 포함하는 행 찾기
-            metric_rows = df[df['account_nm'].str.contains(metric, na=False)]
+            # 유사한 계정명 찾기
+            found_account = find_similar_account_name(df, metric)
             
-            if not metric_rows.empty and 'thstrm_amount' in metric_rows.columns:
-                # 가장 첫 번째 매칭되는 값 사용
-                amount = metric_rows['thstrm_amount'].iloc[0]
-                if pd.notna(amount):
-                    amount_in_100m = amount / 100_000_000  # 억원 단위
-                    if amount_in_100m >= 10000:
-                        amount_in_t = amount_in_100m / 10000  # 조원 단위
-                        results[metric] = {
-                            "value": float(amount),
-                            "formatted": f"{amount_in_t:,.1f}조원",
-                            "unit": "조원"
-                        }
+            if found_account:
+                actual_account_name, requested_account_name = found_account
+                
+                # 해당 계정명을 포함하는 행 찾기
+                metric_rows = df[df['account_nm'].str.contains(actual_account_name, na=False)]
+                
+                if not metric_rows.empty and 'thstrm_amount' in metric_rows.columns:
+                    # 가장 첫 번째 매칭되는 값 사용
+                    amount = metric_rows['thstrm_amount'].iloc[0]
+                    if pd.notna(amount):
+                        amount_in_100m = amount / 100_000_000  # 억원 단위
+                        if amount_in_100m >= 10000:
+                            amount_in_t = amount_in_100m / 10000  # 조원 단위
+                            results[metric] = {
+                                "value": float(amount),
+                                "formatted": f"{amount_in_t:,.1f}조원",
+                                "unit": "조원",
+                                "actual_account_name": actual_account_name,
+                                "requested_account_name": requested_account_name,
+                                "substituted": actual_account_name != requested_account_name
+                            }
+                        else:
+                            results[metric] = {
+                                "value": float(amount),
+                                "formatted": f"{amount_in_100m:,.0f}억원",
+                                "unit": "억원",
+                                "actual_account_name": actual_account_name,
+                                "requested_account_name": requested_account_name,
+                                "substituted": actual_account_name != requested_account_name
+                            }
                     else:
-                        results[metric] = {
-                            "value": float(amount),
-                            "formatted": f"{amount_in_100m:,.0f}억원",
-                            "unit": "억원"
-                        }
+                        results[metric] = {"error": "값이 없음 (NaN)"}
                 else:
-                    results[metric] = {"error": "값이 없음 (NaN)"}
+                    results[metric] = {"error": f"'{actual_account_name}' 항목의 금액 정보를 찾을 수 없음"}
             else:
-                results[metric] = {"error": f"'{metric}' 항목을 찾을 수 없음"}
+                results[metric] = {"error": f"'{metric}' 또는 유사한 항목을 찾을 수 없음"}
         
         return results
         
